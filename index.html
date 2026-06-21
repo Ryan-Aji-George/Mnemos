@@ -1,0 +1,2232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+<meta name="theme-color" content="#f2f0ec" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Mnemos" />
+<title>Mnemos — Flashcards</title>
+<link rel="manifest" id="manifest-link" />
+<link rel="apple-touch-icon" id="apple-icon" />
+<style>
+:root{
+  --bg:#f1efe9;
+  --bg-grad:linear-gradient(180deg,#f4f2ec 0%,#ebe8e0 100%);
+  --surface:rgba(255,255,255,.72);
+  --surface-strong:rgba(255,255,255,.88);
+  --surface-glass:rgba(255,255,255,.55);
+  --surface-2:#ffffff;
+  --ink:#15161a;
+  --ink-soft:#5b5d63;
+  --muted:#9a9da3;
+  --line:rgba(0,0,0,.08);
+  --hairline:rgba(0,0,0,.06);
+  --accent:#a8635f;
+  --accent-bright:#c4757a;
+  --ios-green:#34c759;
+  --ios-blue:#007aff;
+  --slate:#7a8b99;
+  --sage:#8b9a7a;
+  --shadow:0 24px 48px -20px rgba(20,22,30,.22), 0 8px 18px -10px rgba(20,22,30,.14);
+  --shadow-soft:0 4px 16px -6px rgba(20,22,30,.12), 0 1px 2px rgba(20,22,30,.04);
+  --shadow-glass:0 12px 32px -12px rgba(20,22,30,.2), 0 1px 0 rgba(255,255,255,.6) inset, 0 0 0 1px rgba(255,255,255,.4) inset;
+  --r-sm:12px;
+  --r-md:18px;
+  --r-lg:28px;
+  --r-xl:36px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Inter",system-ui,sans-serif;
+  --blur-glass:saturate(180%) blur(20px);
+  --blur-strong:saturate(200%) blur(30px);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-spring:cubic-bezier(.34,1.56,.64,1);
+}
+*,*::before,*::after{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden;background:#cfccc4;color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.4;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;font-feature-settings:"ss01","cv11"}
+button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0;font-size:inherit}
+input,textarea,select{font-family:inherit;font-size:inherit;color:inherit;background:none;border:0;outline:none}
+img{display:block;max-width:100%}
+
+/* Phone shell — fills viewport on mobile, framed on desktop */
+#app{
+  position:fixed;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  background:#d9d6cf;
+}
+.phone{
+  position:relative;
+  width:100%;height:100%;
+  max-width:430px;max-height:932px;
+  background:var(--bg-grad);
+  overflow:hidden;
+  display:flex;flex-direction:column;
+}
+/* Ambient color blobs for liquid-glass backdrop */
+.phone::before{
+  content:"";position:absolute;
+  width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle, rgba(168,99,95,.28) 0%, transparent 60%);
+  top:-150px;right:-150px;pointer-events:none;
+  filter:blur(40px);
+  z-index:0;
+}
+.phone::after{
+  content:"";position:absolute;
+  width:400px;height:400px;border-radius:50%;
+  background:radial-gradient(circle, rgba(122,139,153,.22) 0%, transparent 60%);
+  bottom:-200px;left:-150px;pointer-events:none;
+  filter:blur(40px);
+  z-index:0;
+}
+.phone > *{position:relative;z-index:1}
+@media(min-width:520px){
+  .phone{
+    border-radius:48px;
+    box-shadow:0 40px 80px -20px rgba(0,0,0,.35),0 0 0 12px #0a0a0a,0 0 0 14px #2a2a2a;
+    margin:20px;
+  }
+  .phone::before{
+    content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);
+    width:120px;height:32px;background:#0a0a0a;border-radius:20px;z-index:1000;pointer-events:none;
+  }
+}
+
+/* Status bar (only show on desktop frame) */
+.statusbar{
+  display:none;
+  padding:14px 36px 6px;
+  font-size:15px;font-weight:600;
+  justify-content:space-between;align-items:center;
+  position:relative;z-index:5;
+}
+@media(min-width:520px){.statusbar{display:flex}}
+.statusbar .right{display:flex;align-items:center;gap:6px}
+.battery{display:inline-flex;align-items:center;gap:3px}
+.battery::after{content:"70";font-size:10px;background:#000;color:#fff;padding:2px 6px;border-radius:6px;font-weight:600}
+
+/* Screen container */
+.screens{
+  flex:1;position:relative;overflow:hidden;
+}
+.screen{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;
+  background:transparent;
+  transform:translateX(100%);
+  visibility:hidden;
+  opacity:1;
+  transition:
+    transform .5s var(--ease-out),
+    opacity .5s var(--ease-out),
+    filter .5s var(--ease-out),
+    visibility 0s linear .5s;
+  overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding-bottom:120px;
+  will-change:transform, opacity;
+}
+.screen.active{
+  transform:translateX(0) scale(1);
+  visibility:visible;
+  opacity:1;
+  filter:none;
+  transition:
+    transform .5s var(--ease-out),
+    opacity .5s var(--ease-out),
+    filter .5s var(--ease-out),
+    visibility 0s linear 0s;
+  z-index:2;
+}
+.screen.prev{
+  transform:translateX(-100%) scale(.9);
+  visibility:visible;
+  z-index:1;pointer-events:none;
+  opacity:0;
+  filter:blur(6px);
+}
+
+/* ---------- ONBOARDING / OTP ---------- */
+.onboard{padding:32px 28px;flex:1;display:flex;flex-direction:column;background:#eceae5}
+.smiley{width:46px;height:30px;margin-bottom:36px;margin-top:24px}
+.onboard h1{font-size:26px;font-weight:500;line-height:1.3;margin:0 0 48px;letter-spacing:-.5px}
+.otp{display:flex;gap:10px;margin-bottom:20px}
+.otp input{
+  flex:1;min-width:0;
+  height:56px;
+  text-align:center;
+  font-size:32px;font-weight:300;
+  border-bottom:1.5px solid #1a1a1a;
+  border-radius:0;
+  background:transparent;
+  caret-color:var(--ink);
+}
+.otp input:focus{border-bottom-color:var(--accent);border-bottom-width:2px}
+.otp-hint{font-size:13px;color:#666;margin-bottom:auto}
+.otp-hint a{color:#1a1a1a;text-decoration:underline;text-underline-offset:2px}
+.btn-dark{
+  align-self:flex-start;
+  background:#0a0a0a;color:#fff;
+  padding:14px 32px;border-radius:30px;
+  font-size:15px;font-weight:500;
+  margin-top:auto;margin-bottom:32px;
+  transition:transform .15s;
+}
+.btn-dark:active{transform:scale(.96)}
+.btn-outline{
+  background:transparent;color:#fff;
+  border:1.5px solid rgba(255,255,255,.85);
+  padding:13px 36px;border-radius:30px;
+  font-size:15px;font-weight:500;
+  align-self:flex-start;
+  margin-top:auto;margin-bottom:32px;
+  transition:transform .15s;
+}
+.btn-outline:active{transform:scale(.96)}
+
+/* Welcome cards intro */
+.intro{
+  flex:1;display:flex;flex-direction:column;
+  padding:32px 28px;
+  background:linear-gradient(180deg,#8a9099 0%,#7a8087 100%);
+  color:#fff;
+}
+.intro-dots{display:flex;gap:6px;margin-top:12px;justify-content:center}
+.intro-dots span{width:32px;height:3px;background:rgba(255,255,255,.3);border-radius:2px;transition:background .3s}
+.intro-dots span.on{background:#fff}
+.intro-art{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  position:relative;min-height:280px;margin:30px 0;
+}
+.intro h2{font-size:32px;font-weight:500;line-height:1.15;margin:0 0 8px;letter-spacing:-.8px}
+.intro p{font-size:15px;opacity:.85;margin:0 0 16px;max-width:280px;line-height:1.5}
+.intro-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.menu-fab{
+  width:44px;height:44px;border-radius:50%;
+  background:#3a4148;color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  align-self:flex-start;margin-bottom:20px;
+}
+
+/* Card stack art (intro) */
+.card-stack-art{position:relative;width:240px;height:240px}
+.card-art{
+  position:absolute;border-radius:20px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow);
+}
+.card-art.a{top:20px;right:0;width:140px;height:170px;background:#c89490;transform:rotate(6deg)}
+.card-art.b{bottom:0;left:0;width:150px;height:170px;background:#e8e6e1;border:2px dashed rgba(255,255,255,.4);transform:rotate(-4deg)}
+.card-art .glyph{font-size:48px;color:#8a3f3c;font-weight:300}
+.card-art.b .glyph{color:#5b5b5b}
+.fab-art{
+  position:absolute;right:-8px;bottom:50px;
+  width:48px;height:48px;border-radius:50%;
+  background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow);
+}
+
+/* ---------- HOME / EXPLORE ---------- */
+.home{padding:calc(var(--safe-top) + 12px) 22px 20px;display:flex;flex-direction:column;gap:14px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.pill-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  padding:11px 18px;border-radius:30px;
+  font-size:14px;font-weight:600;letter-spacing:-.2px;
+  box-shadow:var(--shadow-soft);
+  transition:transform .15s, background .2s;
+  color:var(--ink);
+}
+.pill-btn:active{transform:scale(.96)}
+.icon-btn{
+  width:44px;height:44px;border-radius:50%;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-soft);
+  border:1px solid rgba(255,255,255,.6);
+  transition:transform .18s var(--ease-out), background .2s;
+  flex-shrink:0;
+}
+.icon-btn:active{transform:scale(.9);background:rgba(255,255,255,.95)}
+.icon-btn.ghost-on-color{
+  background:rgba(255,255,255,.18);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  color:#fff;
+  box-shadow:0 1px 0 rgba(255,255,255,.3) inset, 0 8px 20px -10px rgba(0,0,0,.2);
+  border:1px solid rgba(255,255,255,.25);
+}
+.icon-btn.ghost-on-color:active{background:rgba(255,255,255,.28)}
+.icon-mini{width:32px;height:32px;background:transparent;box-shadow:none;border:0;backdrop-filter:none;-webkit-backdrop-filter:none;color:var(--ink-soft)}
+.icon-mini:active{background:rgba(0,0,0,.06)}
+.icon-btn svg{pointer-events:none}
+.avatar{
+  width:44px;height:44px;border-radius:50%;
+  background:linear-gradient(135deg,#c89490,#a8635f);
+  display:inline-flex;align-items:center;justify-content:center;
+  color:#fff;font-weight:600;font-size:16px;
+  box-shadow:var(--shadow-soft);
+}
+.home-head{margin:8px 0 4px}
+.huge{
+  font-size:42px;font-weight:700;line-height:1;
+  letter-spacing:-1.8px;
+  margin:0;
+  color:var(--ink);
+}
+.home-sub{font-size:14px;color:var(--ink-soft);margin-top:6px;letter-spacing:-.1px;font-weight:500}
+.section-label{font-size:13px;color:var(--ink-soft);font-weight:600;margin:8px 0 12px;letter-spacing:-.1px;text-transform:none}
+
+/* Tabs */
+.tabs{
+  background:#e8e5dd;border-radius:30px;
+  padding:5px;display:flex;gap:4px;
+  align-self:flex-start;
+}
+.tabs button{
+  flex:1;padding:10px 22px;border-radius:25px;
+  font-size:14px;font-weight:500;color:#888;
+  transition:all .25s;
+  white-space:nowrap;
+}
+.tabs button.on{background:#1a1a1a;color:#fff}
+
+/* Folder card */
+.folder-row{display:flex;gap:14px;overflow-x:auto;padding:8px 4px 16px;margin:0 -22px;padding-left:22px;padding-right:22px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.folder-row::-webkit-scrollbar{display:none}
+.folder-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:8px 0 8px}
+
+.folder-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:8px 0 8px}
+.folder-row{display:flex;gap:12px;overflow-x:auto;padding:8px 4px 16px;margin:0 -22px;padding-left:22px;padding-right:22px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.folder-row::-webkit-scrollbar{display:none}
+
+.folder-card{
+  position:relative;
+  border-radius:20px;
+  padding:18px;
+  color:#fff;
+  aspect-ratio:1;
+  display:flex;flex-direction:column;justify-content:space-between;
+  box-shadow:0 16px 28px -14px rgba(0,0,0,.3),0 4px 10px -4px rgba(0,0,0,.12);
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform .2s;
+}
+.folder-card:active{transform:scale(.96)}
+.folder-card-pattern{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 85% 15%, rgba(255,255,255,.12) 0%, transparent 40%),
+    radial-gradient(circle at 15% 85%, rgba(0,0,0,.1) 0%, transparent 40%);
+}
+.folder-card > *{position:relative;z-index:1}
+.folder-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.folder-card-arrow{
+  width:30px;height:30px;border-radius:10px;
+  background:rgba(0,0,0,.18);
+  display:flex;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+  flex-shrink:0;
+}
+.folder-subj-chip{
+  font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+  color:rgba(255,255,255,.95);
+  background:rgba(0,0,0,.22);
+  padding:5px 10px;border-radius:14px;
+  backdrop-filter:blur(4px);
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.folder-card-bottom{margin-top:auto}
+.folder-card-title{font-size:17px;font-weight:600;letter-spacing:-.3px;line-height:1.2;margin-bottom:3px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.folder-card-meta{font-size:12px;opacity:.85;font-weight:500}
+
+/* Featured deck card */
+.deck-card{
+  position:relative;
+  border-radius:24px;
+  padding:22px;
+  color:#fff;
+  min-height:200px;
+  display:flex;flex-direction:column;
+  box-shadow:0 24px 40px -16px rgba(0,0,0,.3),0 8px 16px -8px rgba(0,0,0,.15);
+  overflow:hidden;
+  cursor:pointer;
+  transition:transform .2s;
+}
+.deck-card:active{transform:scale(.98)}
+.deck-card-pattern{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 90% 20%, rgba(255,255,255,.1) 0%, transparent 30%),
+    radial-gradient(circle at 10% 85%, rgba(0,0,0,.12) 0%, transparent 35%);
+}
+.deck-card > *{position:relative;z-index:1}
+.deck-card .pill{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.22);color:#fff;
+  padding:6px 12px;border-radius:20px;font-size:12px;font-weight:500;
+  backdrop-filter:blur(4px);
+}
+.deck-card-actions{display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+.deck-card-actions .icon-btn{background:#fff;color:#1a1a1a;width:44px;height:44px}
+.deck-card-row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.deck-card-bottom{margin-top:auto;padding-top:18px}
+.deck-card-title{font-size:22px;font-weight:600;letter-spacing:-.5px;line-height:1.15;margin-bottom:4px}
+.deck-card-desc{font-size:13px;opacity:.85;line-height:1.4}
+.toggle{
+  width:52px;height:32px;min-height:32px;max-height:32px;
+  background:rgba(0,0,0,.12);
+  border-radius:32px;position:relative;
+  cursor:pointer;flex-shrink:0;
+  padding:0;border:0;
+  transition:background .35s var(--ease-out);
+  box-shadow:inset 0 1px 2px rgba(0,0,0,.08);
+  box-sizing:border-box;
+}
+.toggle::after{
+  content:"";position:absolute;top:2px;left:2px;width:28px;height:28px;border-radius:50%;background:#fff;
+  transition:transform .4s var(--ease-spring), box-shadow .3s;
+  box-shadow:0 3px 8px rgba(0,0,0,.18),0 1px 1px rgba(0,0,0,.08);
+  box-sizing:border-box;
+}
+.toggle.on{background:var(--ios-green);box-shadow:inset 0 1px 2px rgba(0,80,0,.15)}
+.toggle.on::after{transform:translateX(20px)}
+
+/* ---------- DECK DETAIL ---------- */
+.deck-view{flex:1;display:flex;flex-direction:column}
+.deck-hero{
+  color:#fff;
+  padding:18px 22px 50px;
+  position:relative;
+  border-radius:0 0 32px 32px;
+  min-height:280px;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.deck-hero::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 90% 10%, rgba(255,255,255,.15) 0%, transparent 35%),
+    radial-gradient(circle at 10% 95%, rgba(0,0,0,.18) 0%, transparent 40%);
+}
+.deck-hero > *{position:relative;z-index:1}
+.deck-hero-row{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:24px}
+.deck-hero-content{margin-top:auto}
+.deck-hero h2{font-size:36px;font-weight:600;line-height:1.05;margin:0 0 6px;letter-spacing:-1px}
+.deck-hero .by{font-size:14px;opacity:.85;margin-top:4px;line-height:1.4}
+.hero-stats{display:flex;gap:24px;margin-top:18px}
+.hero-stat{display:flex;align-items:baseline;gap:6px}
+.hs-n{font-size:28px;font-weight:600;letter-spacing:-.5px;line-height:1}
+.hs-l{font-size:12px;opacity:.8;text-transform:uppercase;letter-spacing:1px;font-weight:500}
+
+.deck-body{
+  background:var(--bg);
+  margin-top:-30px;
+  border-radius:32px 32px 0 0;
+  padding:24px 22px 24px;
+  flex:1;
+  display:flex;flex-direction:column;gap:16px;
+  position:relative;
+  z-index:2;
+}
+.deck-stats{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:10px;
+  background:#fff;border-radius:18px;padding:14px;
+  box-shadow:var(--shadow-soft);
+}
+.stat{text-align:center}
+.stat .n{font-size:22px;font-weight:500;letter-spacing:-.5px}
+.stat .l{font-size:11px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.stat.due .n{color:var(--accent)}
+.stat.learn .n{color:var(--slate)}
+.stat.new .n{color:var(--sage)}
+
+.deck-actions{display:flex;flex-direction:column;gap:10px}
+.btn-primary{
+  background:linear-gradient(180deg,#1f2127,#0a0b0e);
+  color:#fff;
+  padding:17px;border-radius:18px;
+  font-size:16px;font-weight:600;letter-spacing:-.2px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:transform .15s, box-shadow .2s;
+  box-shadow:0 8px 20px -8px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.15) inset;
+  border:0;
+}
+.btn-primary:active{transform:scale(.98)}
+.btn-secondary{
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  color:var(--ink);
+  padding:15px;border-radius:18px;
+  font-size:15px;font-weight:600;letter-spacing:-.2px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:var(--shadow-soft);
+  transition:transform .15s;
+}
+.btn-secondary:active{transform:scale(.98)}
+
+.card-list{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.card-row{
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  border-radius:16px;padding:14px 14px;
+  box-shadow:var(--shadow-soft);
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+}
+.card-row .q{font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-row .tag{font-size:10px;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.5px;padding:3px 8px;background:rgba(0,0,0,.05);border-radius:8px}
+
+/* ---------- STUDY ---------- */
+.study{display:flex;flex-direction:column;height:100%;background:var(--bg);padding-bottom:0;overflow:hidden}
+.study-top{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 22px 12px;gap:12px;
+}
+.study-top .progress{flex:1;height:5px;background:#dcd9d2;border-radius:3px;overflow:hidden;margin:0 8px}
+.study-top .progress > i{display:block;height:100%;background:var(--ink);transition:width .4s}
+.study-top .count{font-size:13px;color:var(--ink-soft);font-weight:500;min-width:42px;text-align:right}
+
+.flip-zone{flex:1;display:flex;align-items:center;justify-content:center;padding:8px 24px;perspective:1500px}
+.flipcard{
+  position:relative;width:100%;max-width:340px;aspect-ratio:.7;
+  transform-style:preserve-3d;
+  transition:transform .55s cubic-bezier(.4,0,.2,1);
+  cursor:pointer;
+}
+.flipcard.flipped{transform:rotateY(180deg)}
+.flipface{
+  position:absolute;inset:0;
+  border-radius:28px;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  box-shadow:0 24px 48px -16px rgba(20,22,30,.25), 0 8px 16px -8px rgba(20,22,30,.12);
+  padding:28px;
+  display:flex;flex-direction:column;
+  backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  overflow:hidden;
+}
+.flipface.back{transform:rotateY(180deg)}
+.face-label-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:auto}
+.face-label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;color:var(--muted);font-weight:600}
+.face-content{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  font-size:24px;font-weight:500;line-height:1.4;text-align:center;letter-spacing:-.3px;
+  padding:20px 0;
+  overflow:auto;
+}
+.face-hint{font-size:11px;color:var(--muted);text-align:center;margin-top:auto;padding-top:8px;display:flex;align-items:center;justify-content:center;gap:6px}
+
+.study-count{
+  text-align:center;font-size:13px;color:var(--ink-soft);font-weight:500;
+  margin:6px 0 4px;
+}
+.nav-row{
+  display:grid;grid-template-columns:64px 1fr 64px;gap:12px;align-items:center;
+  padding:14px 18px calc(20px + var(--safe-bot));
+}
+.nav-pill{
+  width:64px;height:56px;border-radius:20px;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  color:var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-soft);
+  transition:transform .15s, background .2s;
+}
+.nav-pill:active{transform:scale(.92)}
+.nav-pill.disabled{opacity:.35;pointer-events:none}
+.nav-pill.primary{background:linear-gradient(180deg,#1f2127,#0a0b0e);color:#fff;border-color:transparent}
+.flip-pill{
+  height:56px;border-radius:20px;
+  background:linear-gradient(180deg,#1f2127,#0a0b0e);
+  color:#fff;
+  font-size:15px;font-weight:600;letter-spacing:-.2px;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  box-shadow:0 10px 24px -10px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.15) inset;
+  transition:transform .15s;
+  border:0;
+}
+.flip-pill:active{transform:scale(.97)}
+.card-tag{
+  display:inline-block;font-size:10px;text-transform:uppercase;letter-spacing:.5px;
+  color:var(--ink-soft);background:#f0ede6;padding:3px 8px;border-radius:8px;
+  margin-top:4px;
+}
+.icon-mini.is-star{color:#c9a576}
+
+/* ---------- BOTTOM NAV (liquid glass dock) ---------- */
+.bottom-nav{
+  position:absolute;
+  left:50%;transform:translateX(-50%);
+  bottom:calc(14px + var(--safe-bot));
+  background:rgba(255,255,255,.55);
+  backdrop-filter:var(--blur-strong);
+  -webkit-backdrop-filter:var(--blur-strong);
+  border-radius:32px;
+  padding:6px;
+  display:flex;align-items:center;gap:2px;
+  box-shadow:0 16px 36px -10px rgba(20,22,30,.25), 0 0 0 1px rgba(255,255,255,.5) inset, 0 1px 0 rgba(255,255,255,.7) inset;
+  z-index:50;
+  animation:dockSlide .5s var(--ease-spring) backwards;
+}
+@keyframes dockSlide{from{opacity:0;transform:translate(-50%,30px)}to{opacity:1;transform:translate(-50%,0)}}
+.bottom-nav button{
+  width:48px;height:48px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  color:var(--ink-soft);
+  transition:all .3s var(--ease-out);
+  background:transparent;
+  border:0;
+}
+.bottom-nav button:active{transform:scale(.9)}
+.bottom-nav button.on{background:var(--ink);color:#fff;width:auto;padding:0 18px;border-radius:24px;box-shadow:0 4px 12px -2px rgba(0,0,0,.25)}
+.bottom-nav button.on .nav-label{display:inline-block;margin-left:8px}
+.nav-label{display:none;font-size:13px;font-weight:600;letter-spacing:-.2px}
+
+/* ---------- BOTTOM SHEET MODAL (liquid glass) ---------- */
+.modal{
+  position:absolute;inset:0;
+  background:rgba(20,22,30,0);
+  display:flex;align-items:flex-end;
+  z-index:200;
+  pointer-events:none;
+  transition:background .35s var(--ease-out);
+}
+.modal.on{pointer-events:auto;background:rgba(20,22,30,.4)}
+.modal.on .sheet{transform:translateY(0)}
+.sheet{
+  width:100%;
+  background:rgba(241,239,233,.85);
+  backdrop-filter:var(--blur-strong);
+  -webkit-backdrop-filter:var(--blur-strong);
+  border-radius:28px 28px 0 0;
+  padding:18px 22px calc(22px + var(--safe-bot));
+  max-height:88%;overflow-y:auto;
+  transform:translateY(100%);
+  transition:transform .42s var(--ease-out);
+  border-top:1px solid rgba(255,255,255,.6);
+  box-shadow:0 -16px 48px -8px rgba(20,22,30,.25);
+}
+.sheet-handle{
+  width:42px;height:5px;background:rgba(0,0,0,.18);
+  border-radius:3px;margin:2px auto 18px;
+}
+.sheet h3{font-size:24px;font-weight:600;margin:0 0 18px;letter-spacing:-.5px}
+.field{
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border-radius:16px;padding:14px 16px;margin-bottom:10px;
+  box-shadow:var(--shadow-soft);
+  border:1px solid rgba(255,255,255,.6);
+}
+.field label{display:block;font-size:11px;text-transform:uppercase;color:var(--muted);letter-spacing:.8px;margin-bottom:6px;font-weight:600}
+.field input,.field textarea{width:100%;font-size:16px;padding:0;background:transparent;resize:none}
+.field textarea{min-height:60px;line-height:1.45}
+
+.color-row{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 16px}
+.color-dot{width:34px;height:34px;border-radius:50%;cursor:pointer;border:3px solid transparent;transition:border-color .2s}
+.color-dot.on{border-color:var(--ink)}
+
+.glyph-row{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 16px}
+.glyph-pick{width:42px;height:42px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:var(--shadow-soft);cursor:pointer;border:2px solid transparent}
+.glyph-pick.on{border-color:var(--ink)}
+
+.sheet-actions{display:flex;gap:10px;margin-top:16px}
+.sheet-actions button{
+  flex:1;padding:16px;border-radius:18px;font-size:15.5px;font-weight:600;letter-spacing:-.2px;
+  transition:transform .15s;
+  border:0;
+}
+.sheet-actions button:active{transform:scale(.97)}
+.sheet-actions .cancel{
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  color:var(--ink);
+  box-shadow:var(--shadow-soft);
+  border:1px solid rgba(255,255,255,.6);
+}
+.sheet-actions .save{
+  background:linear-gradient(180deg,#1f2127,#0a0b0e);color:#fff;
+  box-shadow:0 8px 20px -8px rgba(0,0,0,.35), 0 1px 0 rgba(255,255,255,.15) inset;
+}
+
+/* ---------- SETTINGS (liquid glass cards) ---------- */
+.settings{padding:calc(var(--safe-top) + 8px) 22px 24px;display:flex;flex-direction:column;gap:14px}
+.settings h2{font-size:34px;font-weight:700;margin:8px 0 16px;letter-spacing:-1px}
+.setting-group{
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border-radius:18px;overflow:hidden;
+  box-shadow:var(--shadow-soft);
+  border:1px solid rgba(255,255,255,.6);
+}
+.setting{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;gap:14px;border-bottom:1px solid var(--hairline);transition:background .15s}
+.setting:last-child{border-bottom:0}
+.setting:active{background:rgba(0,0,0,.03)}
+.setting .lab{font-size:15px;font-weight:500;letter-spacing:-.2px}
+.setting .sub{font-size:12.5px;color:var(--ink-soft);margin-top:2px;letter-spacing:-.1px}
+.setting .val{font-size:14px;color:var(--ink-soft)}
+.num-input{width:60px;text-align:right;font-size:14px;background:rgba(0,0,0,.05);padding:6px 10px;border-radius:8px}
+
+/* ---------- EMPTY STATE ---------- */
+.empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:60px 24px;text-align:center;gap:14px;color:var(--ink-soft);
+}
+.empty .em-icon{
+  width:80px;height:80px;border-radius:24px;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:var(--shadow-soft);
+  color:var(--muted);
+}
+.empty h3{margin:0;font-size:19px;color:var(--ink);font-weight:600;letter-spacing:-.3px}
+.empty p{margin:0;font-size:14px;max-width:240px;line-height:1.5}
+
+/* ---------- TOAST ---------- */
+.toast{
+  position:absolute;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#0a0a0a;color:#fff;
+  padding:10px 18px;border-radius:24px;
+  font-size:13px;font-weight:500;
+  opacity:0;pointer-events:none;transition:all .35s;z-index:300;
+  box-shadow:var(--shadow);
+}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* utility icons via inline SVG */
+svg{display:block}
+
+/* ---------- SEARCH (liquid glass overlay) ---------- */
+.search-overlay{
+  position:absolute;inset:0;
+  background:rgba(241,239,233,0);
+  backdrop-filter:saturate(180%) blur(0px);
+  -webkit-backdrop-filter:saturate(180%) blur(0px);
+  z-index:150;
+  display:flex;flex-direction:column;
+  padding:calc(var(--safe-top) + 16px) 22px 20px;
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(-20px);
+  transition:opacity .35s var(--ease-out), transform .35s var(--ease-out), background .35s, backdrop-filter .35s;
+}
+.search-overlay.on{
+  opacity:1;
+  pointer-events:auto;
+  transform:translateY(0);
+  background:rgba(241,239,233,.7);
+  backdrop-filter:var(--blur-strong);
+  -webkit-backdrop-filter:var(--blur-strong);
+}
+.search-bar{
+  display:flex;align-items:center;gap:10px;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  padding:13px 16px;border-radius:18px;
+  box-shadow:var(--shadow-soft);
+  border:1px solid rgba(255,255,255,.6);
+}
+.search-bar input{flex:1;font-size:16px;color:var(--ink)}
+.search-bar input::placeholder{color:var(--muted)}
+
+/* end of card session */
+.done-screen{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:40px 30px;text-align:center;gap:18px;
+}
+.done-circle{
+  width:96px;height:96px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;
+  box-shadow:0 20px 40px -16px rgba(0,0,0,.3);
+}
+.done-screen h2{margin:0;font-size:30px;font-weight:600;letter-spacing:-.5px}
+.done-screen p{margin:0;font-size:15px;color:var(--ink-soft);max-width:280px;line-height:1.5}
+
+/* keyboard helper for desktop */
+.kbd-hint{display:none}
+@media(min-width:520px) and (hover:hover){
+  .kbd-hint{display:block;font-size:11px;color:var(--muted);text-align:center;margin-top:8px}
+}
+
+/* ---------- Touch + selection ---------- */
+.phone, .phone *{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.phone input, .phone textarea, .phone .face-content, .phone .q, .phone .q-sub, .phone .otp-hint, .phone .deck-hero h2, .phone .deck-hero .by{user-select:text;-webkit-user-select:text;-webkit-touch-callout:default}
+.no-select{user-select:none;-webkit-user-select:none}
+button, .pill-btn, .icon-btn, .folder, .deck-card, .card-row, .filter-chip, .sort-btn, .glyph-pick, .subj-pick, .rate-btn, .show-answer, .btn-primary, .btn-secondary, .btn-dark, .btn-outline{
+  min-height:44px;
+  touch-action:manipulation;
+}
+.icon-mini, .sort-btn{min-height:36px}
+.toggle, .color-dot{touch-action:manipulation}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- Chips, filters, sort ---------- */
+.chip-row{
+  display:flex;gap:8px;overflow-x:auto;
+  margin:0 -22px;padding:4px 22px 8px;
+  scrollbar-width:none;
+  mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 12px),transparent 100%);
+}
+.chip-row::-webkit-scrollbar{display:none}
+.filter-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 14px;border-radius:24px;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  font-size:13px;font-weight:600;color:var(--ink-soft);letter-spacing:-.2px;
+  white-space:nowrap;flex-shrink:0;
+  transition:all .2s var(--ease-out);
+  box-shadow:var(--shadow-soft);
+}
+.filter-chip:active{transform:scale(.94)}
+.filter-chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.chip-dot{
+  display:inline-block;width:8px;height:8px;border-radius:50%;
+}
+
+/* iOS-style segmented control with sliding indicator */
+.seg-control{
+  position:relative;
+  display:flex;
+  background:rgba(0,0,0,.05);
+  border-radius:12px;
+  padding:3px;
+  border:1px solid rgba(0,0,0,.04);
+  box-shadow:inset 0 1px 1px rgba(0,0,0,.04);
+  overflow:hidden;
+}
+.seg-indicator{
+  position:absolute;
+  top:3px;bottom:3px;left:0;
+  width:calc((100% - 6px) / var(--seg-count, 3));
+  background:#fff;
+  border-radius:9px;
+  box-shadow:0 3px 8px -2px rgba(0,0,0,.18), 0 1px 1px rgba(0,0,0,.06), 0 1px 0 rgba(255,255,255,.5) inset;
+  transition:transform .45s var(--ease-spring);
+  z-index:0;
+  will-change:transform;
+}
+.seg-control[data-i="0"] .seg-indicator{transform:translateX(3px)}
+.seg-control[data-i="1"] .seg-indicator{transform:translateX(calc(100% + 3px))}
+.seg-control[data-i="2"] .seg-indicator{transform:translateX(calc(200% + 3px))}
+.seg-control[data-i="3"] .seg-indicator{transform:translateX(calc(300% + 3px))}
+.seg-btn{
+  flex:1;min-height:34px;
+  padding:0 10px;
+  font-size:13px;font-weight:600;letter-spacing:-.15px;
+  color:var(--ink-soft);
+  background:transparent;border:0;border-radius:9px;
+  position:relative;z-index:1;
+  transition:color .3s var(--ease-out);
+  white-space:nowrap;
+}
+.seg-btn.on{color:var(--ink)}
+.seg-btn:active{transform:scale(.97)}
+
+/* ---------- Section row with action ---------- */
+.section-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin:14px 0 10px;
+}
+.link-btn{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:13px;font-weight:600;color:var(--accent);letter-spacing:-.2px;
+  padding:8px 12px;border-radius:14px;
+  background:rgba(168,99,95,.1);
+  border:1px solid rgba(168,99,95,.15);
+  transition:transform .15s, background .2s;
+}
+.link-btn:active{transform:scale(.94);background:rgba(168,99,95,.18)}
+
+/* ---------- Subject picker (in deck modal) ---------- */
+.subject-row{
+  display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 16px;
+}
+.subj-pick{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:9px 14px;border-radius:20px;
+  background:var(--surface-strong);
+  backdrop-filter:var(--blur-glass);
+  -webkit-backdrop-filter:var(--blur-glass);
+  border:1px solid rgba(255,255,255,.6);
+  font-size:13px;font-weight:600;color:var(--ink);letter-spacing:-.2px;
+  transition:all .2s var(--ease-out);
+  box-shadow:var(--shadow-soft);
+}
+.subj-pick:active{transform:scale(.94)}
+.subj-pick.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+
+/* ---------- Subject chip on deck pages ---------- */
+.subj-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(255,255,255,.2);
+  backdrop-filter:blur(4px);
+  color:#fff;
+  padding:5px 12px;border-radius:20px;
+  font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+  margin-bottom:10px;
+}
+
+/* ---------- Card row ---------- */
+.card-row{cursor:pointer;transition:transform .15s, background .2s;align-items:center;gap:10px}
+.card-row:active{transform:scale(.985)}
+.card-row-left{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.card-row .q{font-size:14px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.q-sub{font-size:12px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---------- Color picker (iOS-style rounded squares) ---------- */
+.color-row{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0 16px}
+.color-dot{
+  width:46px;height:46px;border-radius:14px;cursor:pointer;
+  border:0;padding:0;
+  position:relative;
+  transition:transform .2s var(--ease-spring);
+  box-shadow:0 4px 12px -4px rgba(0,0,0,.25), 0 1px 2px rgba(0,0,0,.08);
+}
+.color-dot:active{transform:scale(.92)}
+.color-dot.on{transform:scale(1.06)}
+.color-dot.on::after{
+  content:"";position:absolute;inset:-4px;border-radius:18px;
+  border:2.5px solid var(--ink);
+  pointer-events:none;
+}
+.color-dot.on::before{
+  content:"✓";position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  color:#fff;font-size:20px;font-weight:700;
+  text-shadow:0 1px 2px rgba(0,0,0,.3);
+}
+.sort-label{font-size:12px;color:var(--ink-soft);font-weight:500;align-self:center;margin-right:6px}
+.avatar{display:none}
+.tabs{display:none}
+
+/* Subtle entrance animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn2{from{opacity:0}to{opacity:1}}
+.deck-card, .folder-card{animation:fadeUp .35s cubic-bezier(.4,0,.2,1) backwards}
+.folder-grid .folder-card:nth-child(1){animation-delay:.04s}
+.folder-grid .folder-card:nth-child(2){animation-delay:.08s}
+.folder-grid .folder-card:nth-child(3){animation-delay:.12s}
+.folder-grid .folder-card:nth-child(4){animation-delay:.16s}
+.folder-grid .folder-card:nth-child(5){animation-delay:.20s}
+.folder-grid .folder-card:nth-child(6){animation-delay:.24s}
+.folder-grid .folder-card:nth-child(7){animation-delay:.28s}
+.folder-grid .folder-card:nth-child(8){animation-delay:.32s}
+.card-row{animation:fadeUp .3s ease backwards}
+.card-list .card-row:nth-child(1){animation-delay:.02s}
+.card-list .card-row:nth-child(2){animation-delay:.04s}
+.card-list .card-row:nth-child(3){animation-delay:.06s}
+.card-list .card-row:nth-child(4){animation-delay:.08s}
+.card-list .card-row:nth-child(5){animation-delay:.10s}
+.deck-hero-content, .hero-stats, .deck-actions{animation:fadeUp .4s ease backwards;animation-delay:.05s}
+
+/* Ripple-like focus state for buttons */
+.btn-primary{position:relative;overflow:hidden}
+
+/* Better focus accessibility */
+*:focus:not(:focus-visible){outline:none}
+
+/* Smooth scroll for screens */
+.screen{scroll-behavior:smooth}
+
+/* Better empty state */
+.empty .em-icon{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="phone" id="phone">
+
+    <!-- Status bar (desktop frame only) -->
+    <div class="statusbar">
+      <span>9:41</span>
+      <span class="right">
+        <svg width="18" height="12" viewBox="0 0 18 12"><path fill="currentColor" d="M0 8h3v4H0zM5 5h3v7H5zM10 2h3v10h-3zM15 0h3v12h-3z"/></svg>
+        <svg width="16" height="12" viewBox="0 0 16 12"><path fill="currentColor" d="M8 3.5c2.2 0 4.2.9 5.8 2.4l-1.4 1.4C11.2 6.1 9.7 5.5 8 5.5s-3.2.6-4.4 1.8L2.2 5.9C3.8 4.4 5.8 3.5 8 3.5zm5.5-1.6C12 .4 10.1-.5 8-.5S4 .4 2.5 1.9L1 .5C3 -1.5 5.4-2.5 8-2.5s5 1 7 3z" transform="translate(0,3)"/></svg>
+        <span class="battery"></span>
+      </span>
+    </div>
+
+    <!-- Screens -->
+    <div class="screens" id="screens">
+
+      <!-- Home -->
+      <div class="screen" id="screen-home">
+        <div class="home">
+          <div class="topbar">
+            <button class="pill-btn" onclick="openDeckModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"/></svg>
+              New deck
+            </button>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button class="icon-btn" onclick="openSearch()" aria-label="Search">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M15.5 15.5 L20 20"/></svg>
+              </button>
+              <button class="icon-btn" onclick="go('settings')" aria-label="Settings">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="home-head">
+            <h1 class="huge">Decks</h1>
+            <div class="home-sub" id="home-sub"></div>
+          </div>
+
+          <div id="home-content">
+            <!-- populated by JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Deck detail -->
+      <div class="screen" id="screen-deck">
+        <div class="deck-view" id="deck-view-content">
+          <!-- populated -->
+        </div>
+      </div>
+
+      <!-- Study -->
+      <div class="screen" id="screen-study">
+        <div class="study" id="study-content">
+          <!-- populated -->
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="screen" id="screen-settings">
+        <div class="settings">
+          <div class="topbar">
+            <button class="icon-btn" onclick="go('home')" aria-label="Back">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 14 L5 9 L11 4"/></svg>
+            </button>
+            <div></div>
+          </div>
+          <h2>Settings</h2>
+
+          <div class="section-label">Practice</div>
+          <div class="setting-group">
+            <div class="setting">
+              <div>
+                <div class="lab">Shuffle cards</div>
+                <div class="sub">Randomize order each session</div>
+              </div>
+              <div class="toggle" id="set-shuffle" onclick="this.classList.toggle('on');saveSettings()"></div>
+            </div>
+            <div class="setting">
+              <div>
+                <div class="lab">Starred only</div>
+                <div class="sub">Practice just the cards you've starred</div>
+              </div>
+              <div class="toggle" id="set-starred" onclick="this.classList.toggle('on');saveSettings()"></div>
+            </div>
+          </div>
+
+          <div class="section-row">
+            <div class="section-label" style="margin:0">Subjects</div>
+            <button class="link-btn" onclick="openSubjectModal()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"/></svg> Add</button>
+          </div>
+          <div class="setting-group" id="subjects-list"></div>
+
+          <div class="section-label">Data</div>
+          <div class="setting-group">
+            <div class="setting" onclick="exportData()" style="cursor:pointer">
+              <div><div class="lab">Export decks</div><div class="sub">Download as JSON</div></div>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 2 L9 12 M5 8 L9 12 L13 8 M3 15 L15 15"/></svg>
+            </div>
+            <div class="setting" onclick="document.getElementById('import-file').click()" style="cursor:pointer">
+              <div><div class="lab">Import decks</div><div class="sub">Restore from JSON</div></div>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12 L9 2 M5 6 L9 2 L13 6 M3 15 L15 15"/></svg>
+            </div>
+            <div class="setting" onclick="installPWA()" style="cursor:pointer" id="install-row">
+              <div><div class="lab">Install app</div><div class="sub">Add to home screen</div></div>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="2" width="12" height="14" rx="2"/><line x1="9" y1="13" x2="9" y2="13.01"/></svg>
+            </div>
+            <div class="setting" onclick="confirmReset()" style="cursor:pointer">
+              <div><div class="lab" style="color:#c45a52">Reset all data</div><div class="sub">Delete decks and progress</div></div>
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#c45a52" stroke-width="2"><path d="M3 5 L15 5 M7 5 V3 H11 V5 M5 5 L6 16 H12 L13 5"/></svg>
+            </div>
+          </div>
+
+          <div class="section-label">About</div>
+          <div class="setting-group">
+            <div class="setting"><div><div class="lab">Mnemos</div><div class="sub">v1.0 — Offline flashcards</div></div></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom nav -->
+    <nav class="bottom-nav" id="nav" style="display:none">
+      <button data-target="home" class="on" aria-label="Decks">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 L12 4 L21 9 L12 14 Z"/><path d="M3 14 L12 19 L21 14"/></svg>
+        <span class="nav-label">Decks</span>
+      </button>
+      <button data-target="search" aria-label="Search">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="M15.5 15.5 L20 20"/></svg>
+        <span class="nav-label">Search</span>
+      </button>
+      <button data-target="create" aria-label="New deck">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5 V19 M5 12 H19"/></svg>
+        <span class="nav-label">New</span>
+      </button>
+      <button data-target="settings" aria-label="Settings">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9"/></svg>
+        <span class="nav-label">Settings</span>
+      </button>
+    </nav>
+
+    <!-- Search overlay -->
+    <div class="search-overlay" id="search-overlay">
+      <div class="topbar">
+        <button class="icon-btn" onclick="closeSearch()" aria-label="Back">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 14 L5 9 L11 4"/></svg>
+        </button>
+        <div class="search-bar" style="flex:1">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="5"/><line x1="12" y1="12" x2="16" y2="16" stroke-linecap="round"/></svg>
+          <input id="search-input" placeholder="Search decks and cards" oninput="renderSearch()" />
+        </div>
+      </div>
+      <div id="search-results" style="margin-top:14px;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+    <!-- Deck modal -->
+    <div class="modal" id="deck-modal">
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <h3 id="deck-modal-title">New Deck</h3>
+        <div class="field">
+          <label>Deck name</label>
+          <input id="deck-name" placeholder="e.g. Spanish Verbs" />
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <input id="deck-desc" placeholder="Optional" />
+        </div>
+        <div class="section-label" style="margin:14px 0 6px">Subject</div>
+        <div class="subject-row" id="subject-row"></div>
+        <div class="section-label" style="margin:6px 0 6px">Color</div>
+        <div class="color-row" id="color-row"></div>
+        <div class="sheet-actions">
+          <button class="cancel" onclick="closeModal('deck-modal')">Cancel</button>
+          <button class="save" onclick="saveDeck()">Save deck</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Subject modal -->
+    <div class="modal" id="subject-modal">
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <h3 id="subject-modal-title">New Subject</h3>
+        <div class="field">
+          <label>Subject name</label>
+          <input id="subject-name" placeholder="e.g. Biology" />
+        </div>
+        <div class="section-label" style="margin:6px 0 6px">Color</div>
+        <div class="color-row" id="subject-color-row"></div>
+        <div class="sheet-actions">
+          <button class="cancel" onclick="closeModal('subject-modal')">Cancel</button>
+          <button class="save" onclick="saveSubject()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card modal -->
+    <div class="modal" id="card-modal">
+      <div class="sheet">
+        <div class="sheet-handle"></div>
+        <h3 id="card-modal-title">New Card</h3>
+        <div class="field">
+          <label>Front</label>
+          <textarea id="card-front" placeholder="Question, term, or prompt"></textarea>
+        </div>
+        <div class="field">
+          <label>Back</label>
+          <textarea id="card-back" placeholder="Answer or definition"></textarea>
+        </div>
+        <div class="field">
+          <label>Tag (optional)</label>
+          <input id="card-tag" placeholder="e.g. chapter-1" />
+        </div>
+        <div class="sheet-actions">
+          <button class="cancel" onclick="closeModal('card-modal')">Cancel</button>
+          <button class="save" onclick="saveCard()">Save card</button>
+        </div>
+      </div>
+    </div>
+
+    <input type="file" id="import-file" accept="application/json" style="display:none" onchange="importData(event)" />
+    <div class="toast" id="toast"></div>
+
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   DATA — localStorage backed
+   ============================================================ */
+const STORE_KEY = "mnemos:v1";
+const SETTINGS_KEY = "mnemos:settings:v1";
+const COLORS = [
+  {name:"clay",   c:"#a8635f"},
+  {name:"slate",  c:"#7a8b99"},
+  {name:"sage",   c:"#8b9a7a"},
+  {name:"mauve",  c:"#8e7a8b"},
+  {name:"teal",   c:"#6e8a85"},
+  {name:"sand",   c:"#c9a576"},
+  {name:"stone",  c:"#8a8378"},
+  {name:"ink",    c:"#3d4148"},
+  {name:"plum",   c:"#7a4f63"},
+  {name:"ocean",  c:"#4f7a8a"},
+  {name:"olive",  c:"#7a8a4f"},
+  {name:"ember",  c:"#c4754a"},
+];
+/* Glyphs/thumbnails removed — decks rendered as clean typographic cards */
+
+/* ---------- Icon library: polished, consistent stroke icons ---------- */
+const ICONS = {
+  back:    '<path d="M14 6 L8 12 L14 18" stroke-linecap="round" stroke-linejoin="round"/>',
+  close:   '<path d="M6 6 L18 18 M18 6 L6 18" stroke-linecap="round"/>',
+  search:  '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5 L20 20" stroke-linecap="round"/>',
+  plus:    '<path d="M12 5 V19 M5 12 H19" stroke-linecap="round"/>',
+  play:    '<path d="M8 5 L19 12 L8 19 Z" stroke-linejoin="round" fill="currentColor"/>',
+  shuffle: '<path d="M16 4 L20 4 L20 8 M20 4 L13 11 M16 20 L20 20 L20 16 M20 20 L14 14 M4 4 L8 8" stroke-linecap="round" stroke-linejoin="round"/>',
+  edit:    '<path d="M14 4 L20 10 L9 21 L3 21 L3 15 Z" stroke-linejoin="round"/><path d="M13 5 L19 11"/>',
+  trash:   '<path d="M4 7 L20 7 M9 7 V4 H15 V7 M6 7 L7 20 H17 L18 7" stroke-linecap="round" stroke-linejoin="round"/>',
+  more:    '<circle cx="12" cy="5" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="19" r="1.6" fill="currentColor"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2 V5 M12 19 V22 M2 12 H5 M19 12 H22 M4.9 4.9 L7 7 M17 17 L19.1 19.1 M4.9 19.1 L7 17 M17 7 L19.1 4.9"/>',
+  decks:   '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M7 3 H17 M5 9 H19"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="M9 15 L11 11 L15 9 L13 13 Z" fill="currentColor" stroke="none"/>',
+  card:    '<rect x="4" y="6" width="16" height="12" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/>',
+  cards:   '<rect x="6" y="4" width="13" height="16" rx="2" transform="rotate(-6 12 12)"/><rect x="5" y="4" width="13" height="16" rx="2" transform="rotate(4 12 12)" fill="#fff" stroke="currentColor"/>',
+  check:   '<path d="M5 12 L10 17 L20 7" stroke-linecap="round" stroke-linejoin="round"/>',
+  x:       '<path d="M6 6 L18 18 M18 6 L6 18" stroke-linecap="round"/>',
+  arrow:   '<path d="M5 12 H19 M13 6 L19 12 L13 18" stroke-linecap="round" stroke-linejoin="round"/>',
+  arrowUR: '<path d="M7 17 L17 7 M9 7 H17 V15" stroke-linecap="round" stroke-linejoin="round"/>',
+  download:'<path d="M12 4 V15 M7 11 L12 16 L17 11 M5 20 H19" stroke-linecap="round" stroke-linejoin="round"/>',
+  upload:  '<path d="M12 16 V4 M7 9 L12 4 L17 9 M5 20 H19" stroke-linecap="round" stroke-linejoin="round"/>',
+  install: '<rect x="5" y="3" width="14" height="18" rx="3"/><line x1="12" y1="17" x2="12" y2="17.01" stroke-linecap="round"/><line x1="9" y1="6" x2="15" y2="6"/>',
+  bell:    '<path d="M6 16 V11 a6 6 0 0 1 12 0 V16 L20 18 H4 Z M10 21 H14"/>',
+  star:    '<path d="M12 3 L14.5 9 L21 9.5 L16 14 L17.5 20.5 L12 17 L6.5 20.5 L8 14 L3 9.5 L9.5 9 Z" stroke-linejoin="round"/>',
+  refresh: '<path d="M4 12 a8 8 0 0 1 14 -5 L20 5 V10 H15 M20 12 a8 8 0 0 1 -14 5 L4 19 V14 H9" stroke-linecap="round" stroke-linejoin="round"/>',
+  eye:     '<path d="M2 12 C5 6 9 4 12 4 C15 4 19 6 22 12 C19 18 15 20 12 20 C9 20 5 18 2 12 Z"/><circle cx="12" cy="12" r="3"/>',
+  layers:  '<path d="M12 3 L21 8 L12 13 L3 8 Z" stroke-linejoin="round"/><path d="M3 12 L12 17 L21 12 M3 16 L12 21 L21 16"/>',
+  filter:  '<path d="M4 5 H20 L14 13 V20 L10 18 V13 Z" stroke-linejoin="round"/>',
+  user:    '<circle cx="12" cy="8" r="4"/><path d="M4 21 C4 16 8 14 12 14 C16 14 20 16 20 21"/>',
+};
+function icon(name, size, extra){
+  size = size || 22;
+  extra = extra || "";
+  return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" ${extra}>${ICONS[name]||""}</svg>`;
+}
+
+const seedSubjects = () => ([
+  {id:"subj-general", name:"General", color:"#7a8b99"},
+  {id:"subj-language", name:"Languages", color:"#a8635f"},
+  {id:"subj-science", name:"Science", color:"#8b9a7a"},
+]);
+
+const seedDecks = () => ([]);
+
+function mkCard(front, back, tag){
+  return {
+    id: id(),
+    front, back, tag: tag || "",
+    starred: false,
+  };
+}
+function id(){return Math.random().toString(36).slice(2,11)+Date.now().toString(36).slice(-4)}
+
+let state = {
+  decks: [],
+  subjects: [],
+  currentDeckId: null,
+  homeSort: "recent",  // recent | name | size
+  homeSubject: "all",  // subject id or "all"
+  editingCardId: null,
+  editingDeckId: null,
+  editingSubjectId: null,
+  studyQueue: [],
+  studyIdx: 0,
+  studyStart: 0,
+  flipped: false,
+  history: ["home"],
+  deferredInstall: null,
+};
+
+let settings = {
+  shuffle: true,
+  starredOnly: false,
+};
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      state.decks = parsed.decks || [];
+      state.subjects = parsed.subjects || seedSubjects();
+    } else {
+      state.decks = seedDecks();
+      state.subjects = seedSubjects();
+      save();
+    }
+  }catch(e){
+    state.decks = seedDecks();
+    state.subjects = seedSubjects();
+  }
+  try{
+    const s = localStorage.getItem(SETTINGS_KEY);
+    if(s) Object.assign(settings, JSON.parse(s));
+  }catch(e){}
+}
+function save(){localStorage.setItem(STORE_KEY, JSON.stringify({decks:state.decks, subjects:state.subjects}))}
+function saveSettings(){
+  settings.shuffle = document.getElementById("set-shuffle").classList.contains("on");
+  settings.starredOnly = document.getElementById("set-starred").classList.contains("on");
+  localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+const SCREENS = ["otp","intro","home","deck","study","settings"];
+let currentScreen = "otp";
+
+let _navLock = false;
+function go(name, opts){
+  opts = opts || {};
+  if(_navLock) return;
+  if(name === currentScreen) return;
+  const cur = document.getElementById("screen-"+currentScreen);
+  const next = document.getElementById("screen-"+name);
+  if(!next) return;
+  _navLock = true;
+
+  // Snap any third-party screens (not cur, not next) to default state without animation
+  document.querySelectorAll(".screen").forEach(s=>{
+    if(s!==cur && s!==next){
+      s.style.transition = "none";
+      s.classList.remove("active","prev");
+      void s.offsetWidth;
+      s.style.transition = "";
+    }
+  });
+
+  // Render upcoming screen content before we animate it in
+  if(name==="home") renderHome();
+  if(name==="deck") renderDeck();
+  if(name==="study") renderStudy();
+  if(name==="settings") renderSettings();
+
+  // If next was parked as .prev (left), snap it to default (right) without animation first
+  if(next.classList.contains("prev")){
+    next.style.transition = "none";
+    next.classList.remove("prev");
+    void next.offsetWidth;
+    next.style.transition = "";
+  }
+
+  // Animate: cur slides + fades fully out to the left, next slides in from the right
+  if(cur){cur.classList.remove("active");cur.classList.add("prev")}
+  next.classList.add("active");
+
+  // Release nav lock after transition completes
+  setTimeout(()=>{ _navLock = false; }, 520);
+
+  currentScreen = name;
+  if(!opts.noHistory) state.history.push(name);
+  if(name === "home") localStorage.setItem("flash:onboarded","1");
+
+  // sync nav visibility + active state
+  const nav = document.getElementById("nav");
+  const hideNav = name==="otp" || name==="intro" || name==="study";
+  nav.style.display = hideNav ? "none" : "flex";
+  document.querySelectorAll("#nav button").forEach(b=>{
+    const t = b.dataset.target;
+    b.classList.toggle("on",
+      (t==="home" && (name==="home"||name==="deck")) ||
+      (t==="settings" && name==="settings"));
+  });
+}
+
+function back(){
+  if(state.history.length<=1){go("home");return}
+  state.history.pop();
+  const prev = state.history[state.history.length-1];
+  go(prev,{noHistory:true});
+}
+
+document.querySelectorAll("#nav button").forEach(b=>{
+  b.addEventListener("click",()=>{
+    const t = b.dataset.target;
+    if(t==="home") go("home");
+    else if(t==="settings") go("settings");
+    else if(t==="search") openSearch();
+    else if(t==="create") openDeckModal();
+  });
+});
+
+// initialize: skip onboarding entirely, land on home
+document.getElementById("screen-home").classList.add("active");
+currentScreen = "home";
+state.history = ["home"];
+
+/* ============================================================
+   HOME / EXPLORE
+   ============================================================ */
+function renderHome(){
+  const c = document.getElementById("home-content");
+
+  // Update home sub-header
+  const sub = document.getElementById("home-sub");
+  if(sub){
+    const total = state.decks.length;
+    sub.textContent = total ? `${total} deck${total!==1?"s":""}` : "Tap + to create your first deck";
+  }
+
+  // Filter + sort
+  let decks = state.decks.slice();
+  if(state.homeSubject !== "all"){
+    if(state.homeSubject === "none") decks = decks.filter(d=>!d.subjectId);
+    else decks = decks.filter(d=>d.subjectId===state.homeSubject);
+  }
+  if(state.homeSort === "name"){
+    decks.sort((a,b)=>a.name.localeCompare(b.name));
+  } else if(state.homeSort === "size"){
+    decks.sort((a,b)=>b.cards.length-a.cards.length);
+  } else {
+    decks.sort((a,b)=>(b.created||0)-(a.created||0));
+  }
+
+  const subjChips = `
+    <div class="chip-row no-select">
+      <button class="filter-chip ${state.homeSubject==='all'?'on':''}" data-subj="all">All decks</button>
+      ${state.subjects.map(s=>`<button class="filter-chip ${state.homeSubject===s.id?'on':''}" data-subj="${s.id}" style="${state.homeSubject===s.id?`background:${s.color};color:#fff;border-color:${s.color}`:`border-color:${s.color}40`}">
+        <span class="chip-dot" style="background:${s.color}"></span>${escapeHTML(s.name)}
+      </button>`).join("")}
+      <button class="filter-chip ${state.homeSubject==='none'?'on':''}" data-subj="none">Unfiled</button>
+    </div>
+  `;
+
+  const sortOptions = [
+    {k:"recent", l:"Recent"},
+    {k:"name",   l:"A–Z"},
+    {k:"size",   l:"Largest"},
+  ];
+  const sortIdx = Math.max(0, sortOptions.findIndex(o=>o.k===state.homeSort));
+  const sortRow = `
+    <div class="seg-control no-select" data-i="${sortIdx}" style="--seg-count:${sortOptions.length}">
+      <div class="seg-indicator"></div>
+      ${sortOptions.map((o,i)=>`<button class="seg-btn ${i===sortIdx?'on':''}" data-sort="${o.k}" data-i="${i}">${o.l}</button>`).join("")}
+    </div>
+  `;
+
+  if(!decks.length){
+    c.innerHTML = subjChips + `
+      <div class="empty">
+        <div class="em-icon">${icon("cards",34)}</div>
+        <h3>${state.homeSubject==='all'?'No decks yet':'No decks in this subject'}</h3>
+        <p>${state.homeSubject==='all'?'Build your first deck to start practicing.':'Try another filter or create one here.'}</p>
+        <button class="btn-primary" style="padding:12px 24px;border-radius:24px;margin-top:8px" onclick="openDeckModal()">${icon("plus",16)} Create deck</button>
+      </div>`;
+    bindHome(c);
+    return;
+  }
+
+  c.innerHTML = `
+    ${subjChips}
+    ${sortRow}
+    <div class="folder-grid">
+      ${decks.map(d=>renderFolder(d)).join("")}
+    </div>
+  `;
+  bindHome(c);
+}
+
+function bindHome(c){
+  c.querySelectorAll("[data-subj]").forEach(el=>{
+    el.onclick = ()=>{
+      state.homeSubject = el.dataset.subj;
+      c.querySelectorAll("[data-subj]").forEach(b=>{
+        const isOn = b.dataset.subj===state.homeSubject;
+        b.classList.toggle("on", isOn);
+        const subjId = b.dataset.subj;
+        const s = state.subjects.find(x=>x.id===subjId);
+        if(s){
+          b.setAttribute("style", isOn ? `background:${s.color};color:#fff;border-color:${s.color}` : `border-color:${s.color}40`);
+        }
+      });
+      refreshGridOnly(c);
+    };
+  });
+  c.querySelectorAll("[data-sort]").forEach(el=>{
+    el.onclick = ()=>{
+      state.homeSort = el.dataset.sort;
+      const seg = c.querySelector(".seg-control");
+      if(seg) seg.dataset.i = el.dataset.i;
+      c.querySelectorAll(".seg-btn").forEach(b=>{
+        b.classList.toggle("on", b.dataset.sort===state.homeSort);
+      });
+      refreshGridOnly(c);
+    };
+  });
+  bindDeckCards(c);
+}
+
+function bindDeckCards(c){
+  c.querySelectorAll("[data-deck]").forEach(el=>{
+    el.onclick = ()=> openDeck(el.dataset.deck);
+  });
+  c.querySelectorAll("[data-study]").forEach(el=>{
+    el.onclick = (ev)=>{ev.stopPropagation();startStudy(el.dataset.study)};
+  });
+  c.querySelectorAll("[data-deck-menu]").forEach(el=>{
+    el.onclick = (ev)=>{ev.stopPropagation(); openDeck(el.dataset.deckMenu)};
+  });
+}
+
+function refreshGridOnly(c){
+  let decks = state.decks.slice();
+  if(state.homeSubject !== "all"){
+    if(state.homeSubject === "none") decks = decks.filter(d=>!d.subjectId);
+    else decks = decks.filter(d=>d.subjectId===state.homeSubject);
+  }
+  if(state.homeSort === "name"){
+    decks.sort((a,b)=>a.name.localeCompare(b.name));
+  } else if(state.homeSort === "size"){
+    decks.sort((a,b)=>b.cards.length-a.cards.length);
+  } else {
+    decks.sort((a,b)=>(b.created||0)-(a.created||0));
+  }
+  const grid = c.querySelector(".folder-grid");
+  if(grid){
+    grid.innerHTML = decks.map(d=>renderFolder(d)).join("");
+    bindDeckCards(c);
+  }
+  // update sub-header
+  const sub = document.getElementById("home-sub");
+  if(sub){
+    const total = state.decks.length;
+    if(state.homeSubject==="all"){
+      sub.textContent = total ? `${total} deck${total!==1?"s":""}` : "Tap + to create your first deck";
+    } else if(state.homeSubject==="none"){
+      sub.textContent = `${decks.length} unfiled · ${total} total`;
+    } else {
+      const s = state.subjects.find(x=>x.id===state.homeSubject);
+      sub.textContent = `${decks.length} in ${s?s.name:"subject"} · ${total} total`;
+    }
+  }
+}
+
+
+function renderDeckCard(d){
+  const total = d.cards.length;
+  const subj = d.subjectId ? state.subjects.find(s=>s.id===d.subjectId) : null;
+  return `
+    <div class="deck-card" style="background:linear-gradient(140deg, ${shadeColor(d.color,15)}, ${shadeColor(d.color,-20)})" data-deck="${d.id}">
+      <div class="deck-card-pattern"></div>
+      <div class="deck-card-row">
+        <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-start">
+          ${subj?`<span class="pill" style="background:rgba(0,0,0,.28)">${escapeHTML(subj.name)}</span>`:""}
+          <span class="pill">${total} card${total!==1?"s":""}</span>
+        </div>
+        <div class="deck-card-actions">
+          <button class="icon-btn" data-study="${d.id}" aria-label="Practice">${icon("play",20)}</button>
+          <button class="icon-btn" data-deck-menu="${d.id}" aria-label="Open">${icon("arrow",20)}</button>
+        </div>
+      </div>
+      <div class="deck-card-bottom">
+        <div class="deck-card-title">${escapeHTML(d.name)}</div>
+        ${d.desc?`<div class="deck-card-desc">${escapeHTML(d.desc)}</div>`:""}
+      </div>
+    </div>
+  `;
+}
+
+function renderFolder(d){
+  const total = d.cards.length;
+  const subj = d.subjectId ? state.subjects.find(s=>s.id===d.subjectId) : null;
+  return `
+    <div class="folder-card" data-deck="${d.id}" style="background:linear-gradient(145deg, ${shadeColor(d.color,15)}, ${shadeColor(d.color,-20)})">
+      <div class="folder-card-pattern"></div>
+      <div class="folder-card-top">
+        ${subj?`<span class="folder-subj-chip">${escapeHTML(subj.name)}</span>`:`<span></span>`}
+        <span class="folder-card-arrow">${icon("arrowUR",14)}</span>
+      </div>
+      <div class="folder-card-bottom">
+        <div class="folder-card-title">${escapeHTML(d.name)}</div>
+        <div class="folder-card-meta">${total} card${total!==1?"s":""}</div>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   DECK DETAIL
+   ============================================================ */
+function openDeck(deckId){
+  state.currentDeckId = deckId;
+  go("deck");
+}
+
+function renderDeck(){
+  const d = state.decks.find(x=>x.id===state.currentDeckId);
+  if(!d){go("home");return}
+
+  const total = d.cards.length;
+  const starred = d.cards.filter(c=>c.starred).length;
+  const subj = d.subjectId ? state.subjects.find(s=>s.id===d.subjectId) : null;
+
+  document.getElementById("deck-view-content").innerHTML = `
+    <div class="deck-hero" style="background:linear-gradient(160deg, ${shadeColor(d.color,15)}, ${shadeColor(d.color,-15)})">
+      <div class="deck-hero-row">
+        <button class="icon-btn ghost-on-color" onclick="go('home')" aria-label="Back">${icon("back",20)}</button>
+        <div style="display:flex;gap:8px">
+          <button class="icon-btn ghost-on-color" onclick="openDeckModal('${d.id}')" aria-label="Edit">${icon("edit",18)}</button>
+          <button class="icon-btn ghost-on-color" onclick="confirmDeleteDeck('${d.id}')" aria-label="Delete">${icon("trash",18)}</button>
+        </div>
+      </div>
+      <div class="deck-hero-content">
+        ${subj?`<span class="subj-chip">${escapeHTML(subj.name)}</span>`:""}
+        <h2>${escapeHTML(d.name)}</h2>
+        ${d.desc?`<div class="by">${escapeHTML(d.desc)}</div>`:""}
+        <div class="hero-stats">
+          <div class="hero-stat"><div class="hs-n">${total}</div><div class="hs-l">card${total!==1?"s":""}</div></div>
+          ${starred ? `<div class="hero-stat"><div class="hs-n">${starred}</div><div class="hs-l">starred</div></div>` : ""}
+        </div>
+      </div>
+    </div>
+    <div class="deck-body">
+      <div class="deck-actions">
+        <button class="btn-primary" ${total===0?"disabled style='opacity:.5;cursor:default'":`onclick="startStudy('${d.id}')"`}>
+          ${icon("play",18)} ${total===0 ? "Add cards to start" : "Start practice"}
+        </button>
+        <button class="btn-secondary" onclick="openCardModal()">${icon("plus",18)} Add new card</button>
+      </div>
+
+      <div class="section-row">
+        <div class="section-label" style="margin:0">All cards · ${total}</div>
+      </div>
+      <div class="card-list">
+        ${total===0 ? `<div class="empty" style="padding:30px 0">
+          <div class="em-icon">${icon("cards",30)}</div>
+          <h3>No cards yet</h3>
+          <p>Add your first card to start practicing.</p>
+        </div>` : d.cards.map(c=>`
+          <div class="card-row" data-card="${c.id}" onclick="openCardModal('${c.id}')">
+            <div class="card-row-left">
+              <div class="q">${escapeHTML(c.front)}</div>
+              <div class="q-sub">${escapeHTML(c.back).slice(0,80)}${c.back.length>80?"…":""}</div>
+              ${c.tag?`<span class="card-tag">${escapeHTML(c.tag)}</span>`:""}
+            </div>
+            <button class="icon-btn icon-mini ${c.starred?"is-star":""}" onclick="event.stopPropagation();toggleStar('${c.id}')" aria-label="Star">${icon("star",16,c.starred?'fill="currentColor"':'')}</button>
+            <button class="icon-btn icon-mini" onclick="event.stopPropagation();deleteCard('${c.id}')" aria-label="Delete" style="color:#c45a52">${icon("trash",16)}</button>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function shadeColor(hex, percent){
+  const num = parseInt(hex.replace("#",""), 16);
+  const r = Math.min(255, Math.max(0, ((num>>16)&255) + percent));
+  const g = Math.min(255, Math.max(0, ((num>>8)&255) + percent));
+  const b = Math.min(255, Math.max(0, (num&255) + percent));
+  return "#" + ((r<<16)|(g<<8)|b).toString(16).padStart(6,"0");
+}
+
+function confirmDeleteDeck(deckId){
+  const d = state.decks.find(x=>x.id===deckId);
+  if(!d) return;
+  if(!confirm(`Delete deck "${d.name}" and all ${d.cards.length} cards?`)) return;
+  state.decks = state.decks.filter(x=>x.id!==deckId);
+  save(); go("home"); toast("Deck deleted");
+}
+
+function deleteCard(cardId){
+  const d = state.decks.find(x=>x.id===state.currentDeckId);
+  if(!d) return;
+  if(!confirm("Delete this card?")) return;
+  d.cards = d.cards.filter(c=>c.id!==cardId);
+  save(); renderDeck(); toast("Card deleted");
+}
+
+/* ============================================================
+   STUDY — SM-2 spaced repetition
+   ============================================================ */
+function startStudy(deckId){
+  const d = state.decks.find(x=>x.id===deckId);
+  if(!d || !d.cards.length){toast("Add some cards first");return}
+  state.currentDeckId = deckId;
+  buildQueue(d);
+  if(!state.studyQueue.length){toast("Nothing left to practice");return}
+  state.studyIdx = 0;
+  state.studyStart = state.studyQueue.length;
+  state.flipped = false;
+  go("study");
+}
+
+function buildQueue(d){
+  let pool = settings.starredOnly ? d.cards.filter(c=>c.starred) : d.cards.slice();
+  if(!pool.length) pool = d.cards.slice();
+  if(settings.shuffle){
+    for(let i=pool.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [pool[i],pool[j]] = [pool[j],pool[i]];
+    }
+  }
+  state.studyQueue = pool.map(c=>c.id);
+}
+
+function renderStudy(){
+  const d = state.decks.find(x=>x.id===state.currentDeckId);
+  if(!d){go("home");return}
+  const queueLen = state.studyQueue.length;
+  if(state.studyIdx >= queueLen){
+    renderDone(); return;
+  }
+  const cardId = state.studyQueue[state.studyIdx];
+  const c = d.cards.find(x=>x.id===cardId);
+  if(!c){state.studyIdx++;renderStudy();return}
+
+  const pct = Math.round((state.studyIdx+1)/state.studyStart*100);
+
+  document.getElementById("study-content").innerHTML = `
+    <div class="study-top">
+      <button class="icon-btn" onclick="exitStudy()" aria-label="Exit">${icon("close",20)}</button>
+      <div class="progress"><i style="width:${pct}%;background:${d.color}"></i></div>
+      <button class="icon-btn" onclick="toggleStar('${c.id}')" aria-label="Star" style="color:${c.starred?'#c9a576':'var(--ink-soft)'}">${icon("star",20,c.starred?'fill="currentColor"':'')}</button>
+    </div>
+    <div class="study-count">${state.studyIdx+1} of ${state.studyStart}</div>
+
+    <div class="flip-zone" onclick="flipCard()">
+      <div class="flipcard ${state.flipped?'flipped':''}" id="flipcard">
+        <div class="flipface front" style="border-top:4px solid ${d.color}">
+          <div class="face-label-row">
+            <span class="face-label">${c.tag ? escapeHTML(c.tag) : "Front"}</span>
+            <span class="face-label" style="color:var(--muted)">${state.studyIdx+1}/${state.studyStart}</span>
+          </div>
+          <div class="face-content">${escapeHTML(c.front)}</div>
+          <div class="face-hint">${icon("refresh",14)} Tap to flip</div>
+        </div>
+        <div class="flipface back" style="background:${d.color};color:#fff">
+          <div class="face-label-row">
+            <span class="face-label" style="color:rgba(255,255,255,.7)">Back</span>
+          </div>
+          <div class="face-content">${escapeHTML(c.back)}</div>
+          <div class="face-hint" style="color:rgba(255,255,255,.6)">${icon("refresh",14)} Tap to flip back</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-row">
+      <button class="nav-pill ${state.studyIdx===0?'disabled':''}" onclick="prevCard()" aria-label="Previous">
+        ${icon("back",18)}
+      </button>
+      <button class="flip-pill" onclick="flipCard()">
+        ${icon("refresh",16)} Flip
+      </button>
+      <button class="nav-pill primary" onclick="nextCard()" aria-label="Next">
+        ${state.studyIdx+1 === state.studyStart ? icon("check",18) : icon("arrow",18)}
+      </button>
+    </div>
+  `;
+}
+
+function renderDone(){
+  const d = state.decks.find(x=>x.id===state.currentDeckId);
+  document.getElementById("study-content").innerHTML = `
+    <div class="study-top">
+      <button class="icon-btn" onclick="exitStudy()" aria-label="Exit">${icon("close",20)}</button>
+      <div class="progress"><i style="width:100%;background:${d?d.color:'#0a0a0a'}"></i></div>
+      <div style="width:44px"></div>
+    </div>
+    <div class="done-screen">
+      <div class="done-circle" style="background:${d?d.color:'#0a0a0a'}">
+        ${icon("check",44)}
+      </div>
+      <h2>Nice work</h2>
+      <p>You went through ${state.studyStart} card${state.studyStart>1?"s":""}. Ready for another round?</p>
+      <div style="display:flex;gap:10px;margin-top:14px">
+        <button class="btn-secondary" onclick="exitStudy()">Back</button>
+        <button class="btn-primary" onclick="startStudy(state.currentDeckId)">${icon("refresh",16)} Again</button>
+      </div>
+    </div>
+  `;
+}
+
+function flipCard(){
+  if(state.studyIdx>=state.studyQueue.length) return;
+  state.flipped = !state.flipped;
+  renderStudy();
+}
+
+function exitStudy(){
+  go("deck");
+}
+
+function nextCard(){
+  state.flipped = false;
+  state.studyIdx++;
+  renderStudy();
+}
+function prevCard(){
+  if(state.studyIdx <= 0) return;
+  state.flipped = false;
+  state.studyIdx--;
+  renderStudy();
+}
+function toggleStar(cardId){
+  const d = state.decks.find(x=>x.id===state.currentDeckId);
+  const c = d.cards.find(x=>x.id===cardId);
+  if(!c) return;
+  c.starred = !c.starred;
+  save();
+  if(currentScreen==="study") renderStudy();
+  if(currentScreen==="deck") renderDeck();
+}
+
+/* ============================================================
+   MODALS — Deck + Card
+   ============================================================ */
+let editColor = COLORS[0].c;
+let editSubjectId = null;
+let editSubjectColor = COLORS[0].c;
+
+function openDeckModal(deckId){
+  state.editingDeckId = deckId || null;
+  const d = deckId ? state.decks.find(x=>x.id===deckId) : null;
+  document.getElementById("deck-modal-title").textContent = d ? "Edit Deck" : "New Deck";
+  document.getElementById("deck-name").value = d?.name || "";
+  document.getElementById("deck-desc").value = d?.desc || "";
+  editColor = d?.color || COLORS[0].c;
+  editSubjectId = d?.subjectId || null;
+  renderPickers();
+  document.getElementById("deck-modal").classList.add("on");
+}
+
+function renderPickers(){
+  const sr = document.getElementById("subject-row");
+  if(sr){
+    sr.innerHTML =
+      `<button class="subj-pick ${editSubjectId===null?'on':''}" data-s="">None</button>` +
+      state.subjects.map(s=>`<button class="subj-pick ${editSubjectId===s.id?'on':''}" data-s="${s.id}" style="${editSubjectId===s.id?`background:${s.color};color:#fff;border-color:${s.color}`:''}"><span class="chip-dot" style="background:${s.color}"></span>${escapeHTML(s.name)}</button>`).join("");
+    sr.querySelectorAll(".subj-pick").forEach(el=>{
+      el.onclick = ()=>{editSubjectId = el.dataset.s || null; renderPickers()};
+    });
+  }
+  const cr = document.getElementById("color-row");
+  cr.innerHTML = COLORS.map(c=>`<button class="color-dot ${editColor===c.c?'on':''}" data-c="${c.c}" style="background:${c.c}" aria-label="${c.name}"></button>`).join("");
+  cr.querySelectorAll(".color-dot").forEach(el=>{
+    el.onclick = ()=>{editColor = el.dataset.c; renderPickers()};
+  });
+}
+
+function saveDeck(){
+  const name = document.getElementById("deck-name").value.trim();
+  const desc = document.getElementById("deck-desc").value.trim();
+  if(!name){toast("Name required");return}
+  if(state.editingDeckId){
+    const d = state.decks.find(x=>x.id===state.editingDeckId);
+    Object.assign(d, {name, desc, color:editColor, subjectId:editSubjectId});
+  } else {
+    const newDeck = {
+      id: id(), name, desc, color:editColor,
+      subjectId:editSubjectId, created:Date.now(), cards:[],
+    };
+    state.decks.unshift(newDeck);
+    state.currentDeckId = newDeck.id;
+  }
+  save();
+  closeModal("deck-modal");
+  toast(state.editingDeckId ? "Deck updated" : "Deck created");
+  if(currentScreen==="deck") renderDeck();
+  else if(currentScreen==="home") renderHome();
+  if(!state.editingDeckId) go("deck");
+}
+
+/* Subject CRUD */
+function openSubjectModal(subjectId){
+  state.editingSubjectId = subjectId || null;
+  const s = subjectId ? state.subjects.find(x=>x.id===subjectId) : null;
+  document.getElementById("subject-modal-title").textContent = s ? "Edit Subject" : "New Subject";
+  document.getElementById("subject-name").value = s?.name || "";
+  editSubjectColor = s?.color || COLORS[0].c;
+  renderSubjectColorPicker();
+  document.getElementById("subject-modal").classList.add("on");
+}
+function renderSubjectColorPicker(){
+  const cr = document.getElementById("subject-color-row");
+  cr.innerHTML = COLORS.map(c=>`<button class="color-dot ${editSubjectColor===c.c?'on':''}" data-c="${c.c}" style="background:${c.c}" aria-label="${c.name}"></button>`).join("");
+  cr.querySelectorAll(".color-dot").forEach(el=>{
+    el.onclick = ()=>{editSubjectColor = el.dataset.c; renderSubjectColorPicker()};
+  });
+}
+function saveSubject(){
+  const name = document.getElementById("subject-name").value.trim();
+  if(!name){toast("Name required");return}
+  if(state.editingSubjectId){
+    const s = state.subjects.find(x=>x.id===state.editingSubjectId);
+    Object.assign(s, {name, color:editSubjectColor});
+  } else {
+    state.subjects.push({id:"subj-"+id(), name, color:editSubjectColor});
+  }
+  save();
+  closeModal("subject-modal");
+  toast(state.editingSubjectId?"Subject updated":"Subject created");
+  if(currentScreen==="settings") renderSettings();
+  if(currentScreen==="home") renderHome();
+}
+function deleteSubject(subjectId){
+  const s = state.subjects.find(x=>x.id===subjectId);
+  if(!s) return;
+  const used = state.decks.filter(d=>d.subjectId===subjectId).length;
+  if(!confirm(`Delete subject "${s.name}"?${used?` ${used} deck(s) will become unfiled.`:""}`)) return;
+  state.subjects = state.subjects.filter(x=>x.id!==subjectId);
+  state.decks.forEach(d=>{if(d.subjectId===subjectId) d.subjectId=null});
+  save(); renderSettings();
+}
+
+function openCardModal(cardId){
+  state.editingCardId = cardId || null;
+  const d = state.decks.find(x=>x.id===state.currentDeckId);
+  if(!d){toast("Open a deck first");return}
+  const c = cardId ? d.cards.find(x=>x.id===cardId) : null;
+  document.getElementById("card-modal-title").textContent = c ? "Edit Card" : "New Card";
+  document.getElementById("card-front").value = c?.front || "";
+  document.getElementById("card-back").value = c?.back || "";
+  document.getElementById("card-tag").value = c?.tag || "";
+  document.getElementById("card-modal").classList.add("on");
+}
+
+function saveCard(){
+  const d = state.decks.find(x=>x.id===state.currentDeckId);
+  if(!d) return;
+  const front = document.getElementById("card-front").value.trim();
+  const back = document.getElementById("card-back").value.trim();
+  const tag = document.getElementById("card-tag").value.trim();
+  if(!front || !back){toast("Front and back required");return}
+  if(state.editingCardId){
+    const c = d.cards.find(x=>x.id===state.editingCardId);
+    Object.assign(c, {front, back, tag});
+  } else {
+    d.cards.push(mkCard(front, back, tag));
+  }
+  save();
+  closeModal("card-modal");
+  toast(state.editingCardId ? "Card updated" : "Card added");
+  if(currentScreen==="deck") renderDeck();
+}
+
+function closeModal(id){document.getElementById(id).classList.remove("on")}
+document.querySelectorAll(".modal").forEach(m=>{
+  m.addEventListener("click",e=>{if(e.target===m)closeModal(m.id)});
+});
+
+/* ============================================================
+   SEARCH
+   ============================================================ */
+function openSearch(){
+  document.getElementById("search-overlay").classList.add("on");
+  document.getElementById("search-input").value = "";
+  document.getElementById("search-results").innerHTML = "";
+  setTimeout(()=>document.getElementById("search-input").focus(),100);
+}
+function closeSearch(){document.getElementById("search-overlay").classList.remove("on")}
+function renderSearch(){
+  const q = document.getElementById("search-input").value.toLowerCase().trim();
+  const out = document.getElementById("search-results");
+  if(!q){out.innerHTML="";return}
+  const hits = [];
+  state.decks.forEach(d=>{
+    if(d.name.toLowerCase().includes(q)) hits.push({type:"deck",d});
+    d.cards.forEach(c=>{
+      if(c.front.toLowerCase().includes(q) || c.back.toLowerCase().includes(q)){
+        hits.push({type:"card",d,c});
+      }
+    });
+  });
+  if(!hits.length){out.innerHTML = `<div class="empty" style="padding:30px"><p>No matches for "${escapeHTML(q)}"</p></div>`;return}
+  out.innerHTML = hits.slice(0,30).map(h=>{
+    if(h.type==="deck"){
+      return `<div class="card-row" onclick="closeSearch();openDeck('${h.d.id}')">
+        <div class="q" style="font-weight:500">${escapeHTML(h.d.name)}</div>
+        <span class="tag" style="background:${h.d.color};color:#fff">Deck</span>
+      </div>`;
+    }
+    return `<div class="card-row" onclick="closeSearch();openDeck('${h.d.id}')">
+      <div class="q">${escapeHTML(h.c.front)} → ${escapeHTML(h.c.back).slice(0,40)}</div>
+      <span class="tag">${escapeHTML(h.d.name)}</span>
+    </div>`;
+  }).join("");
+}
+
+/* ============================================================
+   SETTINGS
+   ============================================================ */
+function renderSettings(){
+  document.getElementById("set-shuffle").classList.toggle("on", settings.shuffle);
+  document.getElementById("set-starred").classList.toggle("on", settings.starredOnly);
+  renderSubjectsList();
+}
+
+function renderSubjectsList(){
+  const el = document.getElementById("subjects-list");
+  if(!el) return;
+  if(!state.subjects.length){
+    el.innerHTML = `<div class="setting"><div><div class="sub">No subjects yet. Tap Add to create one.</div></div></div>`;
+    return;
+  }
+  el.innerHTML = state.subjects.map(s=>{
+    const used = state.decks.filter(d=>d.subjectId===s.id).length;
+    return `<div class="setting">
+      <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0">
+        <span style="width:14px;height:14px;border-radius:50%;background:${s.color};flex-shrink:0;box-shadow:0 0 0 2px ${s.color}33"></span>
+        <div style="min-width:0">
+          <div class="lab" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(s.name)}</div>
+          <div class="sub">${used} deck${used!==1?"s":""}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button class="icon-btn icon-mini" onclick="openSubjectModal('${s.id}')" aria-label="Edit">${icon("edit",14)}</button>
+        <button class="icon-btn icon-mini" style="color:#c45a52" onclick="deleteSubject('${s.id}')" aria-label="Delete">${icon("trash",14)}</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function exportData(){
+  const data = {version:1, exported:new Date().toISOString(), decks:state.decks, settings};
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `flash-backup-${Date.now()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast("Backup downloaded");
+}
+
+function importData(e){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = ()=>{
+    try{
+      const data = JSON.parse(r.result);
+      if(!data.decks || !Array.isArray(data.decks)) throw new Error("Invalid file");
+      if(confirm(`Import ${data.decks.length} decks? This replaces current data.`)){
+        state.decks = data.decks;
+        if(data.settings) Object.assign(settings, data.settings);
+        save(); localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+        toast("Import complete"); renderHome();
+      }
+    }catch(err){toast("Invalid backup file")}
+  };
+  r.readAsText(f);
+  e.target.value = "";
+}
+
+function confirmReset(){
+  if(!confirm("Delete ALL decks and progress?")) return;
+  if(!confirm("Really? This cannot be undone.")) return;
+  localStorage.removeItem(STORE_KEY);
+  localStorage.removeItem(SETTINGS_KEY);
+  state.decks = seedDecks(); save();
+  toast("Reset complete");
+  go("home");
+}
+
+/* ============================================================
+   PWA — inline manifest + service worker
+   ============================================================ */
+function makeIcon(size){
+  const c = document.createElement("canvas");
+  c.width = size; c.height = size;
+  const g = c.getContext("2d");
+  // background
+  const grad = g.createLinearGradient(0,0,size,size);
+  grad.addColorStop(0,"#a8635f");
+  grad.addColorStop(1,"#7a8b99");
+  g.fillStyle = grad;
+  const r = size*0.22;
+  roundRect(g,0,0,size,size,r); g.fill();
+  // smile
+  g.strokeStyle = "#fff"; g.lineWidth = size*0.06; g.lineCap = "round"; g.fillStyle="#fff";
+  g.beginPath();
+  g.moveTo(size*0.28, size*0.42);
+  g.bezierCurveTo(size*0.36, size*0.78, size*0.64, size*0.78, size*0.72, size*0.42);
+  g.stroke();
+  g.beginPath(); g.arc(size*0.36, size*0.42, size*0.05, 0, Math.PI*2); g.fill();
+  g.beginPath(); g.arc(size*0.64, size*0.42, size*0.05, 0, Math.PI*2); g.fill();
+  return c.toDataURL("image/png");
+}
+function roundRect(g,x,y,w,h,r){
+  g.beginPath();
+  g.moveTo(x+r,y);
+  g.arcTo(x+w,y,x+w,y+h,r);
+  g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r);
+  g.arcTo(x,y,x+w,y,r);
+  g.closePath();
+}
+
+function setupPWA(){
+  const icon192 = makeIcon(192);
+  const icon512 = makeIcon(512);
+  document.getElementById("apple-icon").href = icon192;
+
+  const manifest = {
+    name:"Mnemos — Flashcards",
+    short_name:"Mnemos",
+    description:"Offline flashcards with subjects and starred cards.",
+    start_url:".",
+    scope:"./",
+    display:"standalone",
+    orientation:"portrait",
+    background_color:"#eceae5",
+    theme_color:"#a8635f",
+    icons:[
+      {src:icon192, sizes:"192x192", type:"image/png", purpose:"any"},
+      {src:icon512, sizes:"512x512", type:"image/png", purpose:"any maskable"},
+    ],
+  };
+  const mblob = new Blob([JSON.stringify(manifest)],{type:"application/manifest+json"});
+  document.getElementById("manifest-link").href = URL.createObjectURL(mblob);
+
+  // Service worker (only over HTTP(S))
+  if("serviceWorker" in navigator && location.protocol.startsWith("http")){
+    const swCode = `
+      const CACHE = "flash-v1";
+      self.addEventListener("install", e => self.skipWaiting());
+      self.addEventListener("activate", e => {
+        e.waitUntil(clients.claim());
+      });
+      self.addEventListener("fetch", e => {
+        const r = e.request;
+        if(r.method !== "GET") return;
+        e.respondWith(
+          caches.open(CACHE).then(async cache => {
+            const cached = await cache.match(r);
+            const network = fetch(r).then(res => {
+              if(res.ok) cache.put(r, res.clone());
+              return res;
+            }).catch(() => cached);
+            return cached || network;
+          })
+        );
+      });
+    `;
+    const swBlob = new Blob([swCode],{type:"text/javascript"});
+    const swURL = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swURL,{scope:"./"}).catch(()=>{});
+  }
+}
+
+window.addEventListener("beforeinstallprompt", e=>{
+  e.preventDefault();
+  state.deferredInstall = e;
+});
+function installPWA(){
+  if(state.deferredInstall){
+    state.deferredInstall.prompt();
+    state.deferredInstall.userChoice.then(()=>{state.deferredInstall=null;toast("Installing...")});
+  } else {
+    toast("Use browser menu → Add to home screen");
+  }
+}
+
+/* ============================================================
+   UTIL
+   ============================================================ */
+function escapeHTML(s){
+  if(s==null) return "";
+  return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+let toastTimer;
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("on");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove("on"),1800);
+}
+
+// Keyboard shortcuts (desktop)
+document.addEventListener("keydown", e=>{
+  if(currentScreen !== "study") return;
+  if(["INPUT","TEXTAREA"].includes(e.target.tagName)) return;
+  if(e.code === "Space"){e.preventDefault();flipCard()}
+  else if(e.key==="ArrowRight"){e.preventDefault();nextCard()}
+  else if(e.key==="ArrowLeft"){e.preventDefault();prevCard()}
+  else if(e.key==="Escape"){exitStudy()}
+});
+
+// Swipe nav between cards in study
+let touchStart = null;
+document.addEventListener("touchstart", e=>{
+  if(currentScreen!=="study") return;
+  if(e.target.closest(".nav-pill, .flip-pill, .icon-btn")) return;
+  touchStart = {x:e.touches[0].clientX, y:e.touches[0].clientY};
+});
+document.addEventListener("touchend", e=>{
+  if(!touchStart || currentScreen!=="study") return;
+  const dx = e.changedTouches[0].clientX - touchStart.x;
+  const dy = e.changedTouches[0].clientY - touchStart.y;
+  touchStart = null;
+  if(Math.abs(dy) > Math.abs(dx)) return;
+  if(Math.abs(dx) < 60) return;
+  if(dx < 0) nextCard();
+  else prevCard();
+});
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+load();
+setupPWA();
+renderHome();
+document.getElementById("nav").style.display = "flex";
+document.querySelectorAll("#nav button").forEach(b=>{
+  b.classList.toggle("on", b.dataset.target === "home");
+});
+</script>
+</body>
+</html>
